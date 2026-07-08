@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssetRoute — DAM Sync Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◆</span>
+    <span class="brand-name">AssetRoute</span>
+    <span class="brand-sub">DAM Sync Console</span>
+  </div>
+  <div class="topbar-stats">
+    <div class="stat">
+      <span class="stat-label">queue</span>
+      <span class="stat-value" id="stat-queue">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">synced</span>
+      <span class="stat-value ok" id="stat-synced">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">rejected</span>
+      <span class="stat-value err" id="stat-rejected">0</span>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <section class="intro">
+    <h1>Every asset takes the same road in.<br>Not every asset makes it out.</h1>
+    <p>This console mirrors a DAM-to-downstream sync pipeline: an asset lands in the digital asset manager, gets validated against metadata and rights rules, rendered into deployment-ready formats, and distributed to the systems that consume it — SAP Business One for product imagery, Wrike for creative review. Generate an asset and watch it move.</p>
+    <div class="controls">
+      <button id="btn-generate" class="btn btn-primary">Ingest new asset</button>
+      <button id="btn-batch" class="btn btn-ghost">Run batch of 5</button>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-strict" checked>
+        <span>Enforce rights metadata</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="pipeline-board">
+
+    <div class="pipeline-track" id="pipeline-track">
+      <!-- stage columns injected -->
+    </div>
+
+    <div class="asset-lane" id="asset-lane">
+      <p class="lane-empty" id="lane-empty">No assets in flight. Ingest one to begin.</p>
+    </div>
+
+  </section>
+
+  <section class="console-log">
+    <div class="log-header">
+      <span>sync.log</span>
+      <span class="log-header-sub">live trace</span>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </section>
+
+  <section class="destinations">
+    <h2>Distribution targets</h2>
+    <div class="dest-grid">
+      <div class="dest-card" id="dest-sap">
+        <div class="dest-icon">▣</div>
+        <div class="dest-name">SAP Business One</div>
+        <div class="dest-role">Product master imagery</div>
+        <div class="dest-count"><span id="dest-sap-count">0</span> delivered</div>
+      </div>
+      <div class="dest-card" id="dest-wrike">
+        <div class="dest-icon">▤</div>
+        <div class="dest-name">Wrike</div>
+        <div class="dest-role">Creative review &amp; approval</div>
+        <div class="dest-count"><span id="dest-wrike-count">0</span> delivered</div>
+      </div>
+      <div class="dest-card" id="dest-web">
+        <div class="dest-icon">▥</div>
+        <div class="dest-name">Web CDN Origin</div>
+        <div class="dest-role">Public rendition cache</div>
+        <div class="dest-count"><span id="dest-web-count">0</span> delivered</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="code-samples">
+    <h2>Production code samples</h2>
+    <p class="code-intro">The console above is a simulation. These are representative implementations of the same pipeline logic in the languages I use day to day.</p>
+    <div class="code-tabs">
+      <button class="tab-btn active" data-tab="cs">AssetSyncService.cs</button>
+      <button class="tab-btn" data-tab="ts">asset-metadata.schema.ts</button>
+      <button class="tab-btn" data-tab="ps1">dam-health-check.ps1</button>
+    </div>
+    <div class="code-panels">
+      <pre class="code-panel active" id="panel-cs"><code></code></pre>
+      <pre class="code-panel" id="panel-ts"><code></code></pre>
+      <pre class="code-panel" id="panel-ps1"><code></code></pre>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>AssetRoute — a portfolio showcase by Liam Hulsey. Simulated pipeline, real patterns: metadata validation, retry/backoff distribution, and health-check monitoring drawn from production DAM integration work.</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
