@@ -56,6 +56,18 @@ function updateStat(id, val) {
   document.getElementById(id).textContent = val;
 }
 
+function updateAcceptanceRate() {
+  const total = state.synced + state.rejected;
+  const el = document.getElementById("stat-rate");
+  if (total === 0) {
+    el.textContent = "—";
+    return;
+  }
+  const pct = Math.round((state.synced / total) * 100);
+  el.textContent = `${pct}%`;
+  el.className = "stat-value" + (pct < 70 ? " err" : " ok");
+}
+
 function log(tag, message, level = "info") {
   const line = document.createElement("div");
   line.className = "log-line" + (level !== "info" ? ` ${level}` : "");
@@ -151,6 +163,7 @@ async function runAsset(asset) {
     state.queue -= 1;
     updateStat("stat-rejected", state.rejected);
     updateStat("stat-queue", state.queue);
+    updateAcceptanceRate();
     return;
   }
 
@@ -189,6 +202,7 @@ async function runAsset(asset) {
   state.queue -= 1;
   updateStat("stat-synced", state.synced);
   updateStat("stat-queue", state.queue);
+  updateAcceptanceRate();
 }
 
 function pickDistributionTargets(asset) {
@@ -214,6 +228,11 @@ document.getElementById("btn-batch").addEventListener("click", async () => {
     runAsset(randomAsset());
     await wait(280);
   }
+});
+
+document.getElementById("btn-clear-log").addEventListener("click", () => {
+  logBodyEl.innerHTML = "";
+  log("BOOT", "Log cleared.");
 });
 
 // ---------- Code sample tabs ----------

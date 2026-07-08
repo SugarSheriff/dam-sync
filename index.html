@@ -6,6 +6,8 @@
 <title>AssetRoute — DAM Sync Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="description" content="AssetRoute — a live DAM asset sync pipeline simulation: ingest, validate, render, tag, and distribute assets to downstream systems.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,6 +32,10 @@
     <div class="stat">
       <span class="stat-label">rejected</span>
       <span class="stat-value err" id="stat-rejected">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">acceptance</span>
+      <span class="stat-value" id="stat-rate">—</span>
     </div>
   </div>
 </header>
@@ -64,7 +70,10 @@
   <section class="console-log">
     <div class="log-header">
       <span>sync.log</span>
-      <span class="log-header-sub">live trace</span>
+      <div class="log-header-right">
+        <span class="log-header-sub">live trace</span>
+        <button class="log-clear" id="btn-clear-log">clear</button>
+      </div>
     </div>
     <div class="log-body" id="log-body"></div>
   </section>
