@@ -77,6 +77,16 @@ function log(tag, message, level = "info") {
   logBodyEl.scrollTop = logBodyEl.scrollHeight;
 }
 
+const UPLOADERS = ["M. Chen", "R. Osei", "J. Alvarez", "S. Patel", "K. Novak", "T. Ibarra"];
+const USAGE_TYPES = ["internal", "web", "print", "unrestricted"];
+
+function randomChecksum() {
+  const chars = "0123456789abcdef";
+  let out = "";
+  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 function randomAsset() {
   const type = ASSET_TYPES[Math.floor(Math.random() * ASSET_TYPES.length)];
   const stem = NAME_STEMS[Math.floor(Math.random() * NAME_STEMS.length)];
@@ -84,6 +94,16 @@ function randomAsset() {
   const height = Math.round(width * (Math.random() * 0.5 + 0.6));
   const sizeMb = (Math.random() * 18 + 0.4).toFixed(1);
   const hasRights = Math.random() > 0.28; // ~72% pass rights check
+  const rights = hasRights
+    ? {
+        usageType: USAGE_TYPES[Math.floor(Math.random() * USAGE_TYPES.length)],
+        approvedBy: UPLOADERS[Math.floor(Math.random() * UPLOADERS.length)],
+        expiresOn: Math.random() > 0.7
+          ? new Date(Date.now() + 1000 * 60 * 60 * 24 * (30 + Math.random() * 300)).toISOString().slice(0, 10)
+          : null,
+      }
+    : null;
+
   return {
     id: `A${Date.now().toString(36)}${Math.floor(Math.random() * 999)}`,
     name: `${stem}.${type.ext}`,
@@ -92,6 +112,9 @@ function randomAsset() {
     height,
     sizeMb,
     hasRights,
+    rights,
+    checksum: randomChecksum(),
+    uploadedBy: UPLOADERS[Math.floor(Math.random() * UPLOADERS.length)],
   };
 }
 
@@ -100,6 +123,9 @@ function renderAssetCard(asset) {
   const card = document.createElement("div");
   card.className = "asset-card";
   card.id = `card-${asset.id}`;
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-expanded", "false");
   card.innerHTML = `
     <div class="asset-thumb" style="background:${asset.type.color}">${asset.type.label.slice(0, 3)}</div>
     <div class="asset-meta">
@@ -109,9 +135,43 @@ function renderAssetCard(asset) {
     <div class="asset-stagebar" id="stagebar-${asset.id}">
       ${STAGES.map(s => `<div class="dot" data-stage="${s.key}"></div>`).join("")}
     </div>
+    <div class="asset-chevron">▾</div>
+    <div class="asset-details" id="details-${asset.id}">
+      ${renderDetailRows(asset)}
+    </div>
   `;
+
+  const toggle = () => {
+    const expanded = card.classList.toggle("expanded");
+    card.setAttribute("aria-expanded", String(expanded));
+  };
+  card.addEventListener("click", (e) => {
+    if (e.target.closest(".reject-reason")) return;
+    toggle();
+  });
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  });
+
   laneEl.prepend(card);
   return card;
+}
+
+function renderDetailRows(asset) {
+  const rightsRow = asset.rights
+    ? `<div class="detail-row"><span>Usage rights</span><span>${asset.rights.usageType}${asset.rights.expiresOn ? ` · expires ${asset.rights.expiresOn}` : " · no expiry"}</span></div>
+       <div class="detail-row"><span>Approved by</span><span>${asset.rights.approvedBy}</span></div>`
+    : `<div class="detail-row"><span>Usage rights</span><span class="detail-missing">not on file</span></div>`;
+
+  return `
+    <div class="detail-row"><span>Uploaded by</span><span>${asset.uploadedBy}</span></div>
+    ${rightsRow}
+    <div class="detail-row"><span>Checksum (SHA-1)</span><span class="detail-mono">${asset.checksum}…</span></div>
+    <div class="detail-row"><span>Asset ID</span><span class="detail-mono">${asset.id}</span></div>
+  `;
 }
 
 function setDot(assetId, stageKey, cls) {
@@ -121,12 +181,45 @@ function setDot(assetId, stageKey, cls) {
   if (dot) dot.className = `dot ${cls}`;
 }
 
-function lightDestination(key) {
+async function deliverToDestination(asset, key) {
   const el = document.getElementById(`dest-${key}`);
-  el.classList.add("lit");
-  setTimeout(() => el.classList.remove("lit"), 900);
-  state.destCounts[key] += 1;
-  document.getElementById(`dest-${key}-count`).textContent = state.destCounts[key];
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // ~18% transient failure chance per attempt, tapering with each retry
+    const failChance = 0.18 / attempt;
+    const failed = Math.random() < failChance;
+
+    if (!failed) {
+      el.classList.add("lit");
+      setTimeout(() => el.classList.remove("lit"), 900);
+      state.destCounts[key] += 1;
+      document.getElementById(`dest-${key}-count`).textContent = state.destCounts[key];
+      if (attempt > 1) {
+        log("DELIVER", `${asset.name} reached ${labelFor(key)} on retry ${attempt - 1}`, "warn");
+      } else {
+        log("SYNC", `${asset.name} distributed to ${labelFor(key)}`);
+      }
+      return true;
+    }
+
+    if (attempt < maxAttempts) {
+      const delayMs = [400, 900][attempt - 1] || 900;
+      el.classList.add("retrying");
+      log("RETRY", `delivery to ${labelFor(key)} failed for ${asset.name}, retrying in ${(delayMs / 1000).toFixed(1)}s`, "warn");
+      await wait(delayMs);
+      el.classList.remove("retrying");
+    }
+  }
+
+  log("DEADLETTER", `${asset.name} exhausted retries for ${labelFor(key)}; routed to dead letter`, "error");
+  return false;
+}
+
+async function distributeAsset(asset) {
+  const targets = pickDistributionTargets(asset);
+  const results = await Promise.all(targets.map(t => deliverToDestination(asset, t)));
+  return results.every(Boolean);
 }
 
 function bumpStageCount(key, delta) {
@@ -190,13 +283,26 @@ async function runAsset(asset) {
   // Distribution
   await wait(400);
   setDot(asset.id, "distributed", "active");
-  await wait(500);
+
+  const allDelivered = await distributeAsset(asset);
+
+  if (!allDelivered) {
+    setDot(asset.id, "distributed", "rejected");
+    card.classList.add("status-rejected");
+    const reasonEl = document.createElement("div");
+    reasonEl.className = "reject-reason";
+    reasonEl.textContent = "PARTIAL FAILURE — one or more deliveries moved to dead letter";
+    card.appendChild(reasonEl);
+    state.rejected += 1;
+    state.queue -= 1;
+    updateStat("stat-rejected", state.rejected);
+    updateStat("stat-queue", state.queue);
+    updateAcceptanceRate();
+    return;
+  }
+
   setDot(asset.id, "distributed", "done");
   bumpStageCount("distributed", 1);
-
-  const targets = pickDistributionTargets(asset);
-  targets.forEach(t => lightDestination(t));
-  log("SYNC", `${asset.name} distributed to ${targets.map(labelFor).join(", ")}`, "warn");
 
   state.synced += 1;
   state.queue -= 1;
